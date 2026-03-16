@@ -1,0 +1,117 @@
+<mujoco model="klann_linkage">
+    <!--
+    Klann リンク機構（KlannLinkage.linkage2 より生成）
+
+    閉ループリンク機構: 1自由度（クランク回転で全体が駆動）
+
+    リンク構成:
+      - クランク  (Link 2):    C3→C4（モーター入力）
+      - ロッカー1 (Link 0):    C5→C6
+      - カプラー  (Link 1):    C4-C6-C8（三角形リンク）
+      - ロッカー2 (Link 3):    C2→C7
+      - 足部      (Links 5+6): C7-C8-C1（三角形リンク、C1が足先）
+
+    固定アンカー: C3（クランク中心）、C5、C2
+    閉ループ拘束: C6（カプラー↔ロッカー1）、C7（足部↔ロッカー2）
+
+    座標変換: linkage2 の mm 座標を 0.005 倍してメートル単位に変換。
+             linkage2 の x→MuJoCo X、linkage2 の y→MuJoCo Z（上方向）。
+             クランク中心 C3 を X=0 の基準とし、Z=0.5m の高さに配置。
+    -->
+
+    <compiler angle="degree"/>
+
+    <!-- シミュレーション全体のオプション設定 -->
+    <option gravity="0 0 -9.80665"/>
+
+    <!-- デフォルト設定 -->
+    <default>
+        <geom type="capsule" size="0.015" density="1000"/>
+        <joint type="hinge" axis="0 1 0" damping="0.05"/>
+    </default>
+
+    <asset>
+        <material name="grid" texture="grid" texrepeat="1 1" texuniform="true"/>
+        <texture type="2d" name="grid" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4"
+                 width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+    </asset>
+
+    <worldbody>
+        <!-- 照明と床 -->
+        <light pos="0 -1 2" dir="0 1 -1" diffuse="1 1 1"/>
+        <geom name="floor" type="plane" size="5 5 0.1" rgba="0.9 0.9 0.9 1" material="grid"/>
+
+        <!-- フレーム（固定構造の可視化: C3-C5-C2 を結ぶ三角形） -->
+        <!-- これがあると動作しないのでコメントアウト -->
+        <!--
+                <geom name="frame_C3_C5" fromto="0 0 0.5 -0.431 0 0.5" size="0.01" rgba="0.5 0.5 0.5 1"/>
+                <geom name="frame_C5_C2" fromto="-0.431 0 0.5 -0.2835 0 0.7365" size="0.01" rgba="0.5 0.5 0.5 1"/>
+                <geom name="frame_C3_C2" fromto="0 0 0.5 -0.2835 0 0.7365" size="0.01" rgba="0.5 0.5 0.5 1"/>
+        -->
+
+        <!--
+          【木構造1】クランク→カプラー→足部の直列チェーン
+        -->
+
+        <!-- クランク（Link 2: C3→C4、モーター駆動） -->
+        <body name="crank" pos="0 0 0.5">
+            <joint name="crank_joint"/>
+            <geom name="crank_link" fromto="0 0 0 0.0542 0 0.0778"
+                  rgba="0.9 0.1 0.1 1"/>
+
+            <!-- カプラー（Link 1: 三角形リンク C4-C6-C8） -->
+            <body name="coupler" pos="0.0542 0 0.0778">
+                <joint name="coupler_joint"/>
+                <geom name="coupler_C4_C6" fromto="0 0 0 -0.4321 0 0.0446" rgba="0.1 0.8 0.1 1"/>
+                <geom name="coupler_C4_C8" fromto="0 0 0 -0.7557 0 0.0790" rgba="0.1 0.8 0.1 1"/>
+                <geom name="coupler_C6_C8" fromto="-0.4321 0 0.0446 -0.7557 0 0.0790" rgba="0.1 0.8 0.1 1"/>
+
+                <!-- 足部（Links 5+6: 三角形リンク C7-C8-C1） -->
+                <body name="foot" pos="-0.7557 0 0.0790">
+                    <joint name="foot_joint"/>
+                    <geom name="foot_C8_C7" fromto="0 0 0 0.2475 0 0.3359" rgba="0.6 0.1 0.8 1"/>
+                    <geom name="foot_C8_C1" fromto="0 0 0 0.0123 0 -0.4724" rgba="0.6 0.1 0.8 1"/>
+                    <!-- 足先の接地球（C1: 地面と接触する） -->
+                    <geom name="foot_tip" type="sphere" pos="0.0123 0 -0.4724" size="0.025" rgba="1 0.5 0 1"/>
+                </body>
+            </body>
+        </body>
+
+        <!--
+          【木構造2】ロッカー1（Link 0: C5→C6）
+        -->
+        <body name="rocker1" pos="-0.431 0 0.5">
+            <joint name="rocker1_joint"/>
+            <geom name="rocker1_link" fromto="0 0 0 0.0530 0 0.1225" rgba="0.1 0.1 0.9 1"/>
+        </body>
+
+        <!--
+          【木構造3】ロッカー2（Link 3: C2→C7）
+        -->
+        <body name="rocker2" pos="-0.2835 0 0.7365">
+            <joint name="rocker2_joint"/>
+            <geom name="rocker2_link" fromto="0 0 0 -0.1706 0 0.2563" rgba="0.9 0.5 0.1 1"/>
+        </body>
+    </worldbody>
+
+    <!-- 閉ループ拘束: 切断されたリンクの先端を等式拘束で結合する -->
+    <equality>
+        <!-- カプラーの C6 点とロッカー1 の C6 点を接続 -->
+        <connect body1="coupler" body2="rocker1" anchor="-0.4321 0 0.0446" solref="0.005 1" solimp="0.99 0.99 0.001"/>
+        <!-- 足部の C7 点とロッカー2 の C7 点を接続 -->
+        <connect body1="foot" body2="rocker2" anchor="0.2475 0 0.3359" solref="0.005 1" solimp="0.99 0.99 0.001"/>
+    </equality>
+
+    <!-- 隣接するリンク同士の衝突判定を除外する -->
+    <contact>
+        <exclude body1="crank" body2="coupler"/>
+        <exclude body1="coupler" body2="foot"/>
+        <exclude body1="coupler" body2="rocker1"/>
+        <exclude body1="foot" body2="rocker2"/>
+    </contact>
+
+    <!-- 動作確認用のモーター（クランクのジョイントを動かす） -->
+    <actuator>
+        <motor name="crank_motor" joint="crank_joint" ctrlrange="-10 10" gear="1"/>
+    </actuator>
+</mujoco>

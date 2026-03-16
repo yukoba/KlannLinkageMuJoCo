@@ -1,0 +1,59 @@
+<mujoco model="four_bar_linkage">
+    <compiler angle="degree"/>
+
+    <!-- シミュレーション全体のオプション設定 -->
+    <option gravity="0 0 -9.8"/>
+
+    <!-- デフォルト設定: 見やすさのための太さや、ジョイントの減衰(damping)を設定 -->
+    <default>
+        <geom type="capsule" size="0.05"/>
+        <joint damping="0.05"/>
+    </default>
+
+    <worldbody>
+        <!-- 照明と床 -->
+        <light pos="0 0 5" dir="0 0 -1" diffuse="1 1 1"/>
+        <geom type="plane" size="2 2 0.1" rgba="0.9 0.9 0.9 1"/>
+
+        <!--
+          【木構造1】左側のリンク(link1)と、上部の水平リンク(link2)
+        -->
+        <body name="link1" pos="-0.5 0 0.5">
+            <joint name="joint1" type="hinge" axis="0 1 0"/>
+            <geom fromto="0 0 0  0 0 1" rgba="1 0.2 0.2 1"/> <!-- 赤色 -->
+
+            <body name="link2" pos="0 0 1">
+                <joint name="joint2" type="hinge" axis="0 1 0"/>
+                <geom fromto="0 0 0  1 0 0" rgba="0.2 1 0.2 1"/> <!-- 緑色 -->
+                <!-- link2の先端はグローバル座標で (0.5, 0, 1.5) に位置する -->
+            </body>
+        </body>
+
+        <!--
+          【木構造2】右側のリンク(link3)
+        -->
+        <body name="link3" pos="0.5 0 0.5">
+            <joint name="joint3" type="hinge" axis="0 1 0"/>
+            <geom fromto="0 0 0  0 0 1" rgba="0.2 0.2 1 1"/> <!-- 青色 -->
+            <!-- link3の先端もグローバル座標で (0.5, 0, 1.5) に位置する -->
+        </body>
+    </worldbody>
+
+    <!-- 切断されている link2 の先端と link3 の先端を強制的に結合する -->
+    <equality>
+        <!-- anchor を body1 (link2) のローカル座標で指定。solref と solimp は拘束の「硬さ」を調整するパラメータ。 -->
+        <connect body1="link2" body2="link3" anchor="1 0 0"
+                 solref="0.005 1" solimp="0.99 0.99 0.001" />
+    </equality>
+
+    <!-- link2とlink3の衝突判定を除外する -->
+    <contact>
+        <exclude body1="link2" body2="link3"/>
+    </contact>
+
+    <!-- 動作確認用のモーター（左側の根元のジョイントを動かす） -->
+    <actuator>
+        <motor joint="joint1" ctrlrange="-1 1" gear="20"/>
+    </actuator>
+
+</mujoco>

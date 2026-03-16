@@ -1,10 +1,10 @@
 import mujoco
 
-from klann_linkage import KLANN_XML, KlannLinkageSimulation
+from klann_linkage import KlannLinkageSimulation
 
 
 def test_model_loads():
-    model = mujoco.MjModel.from_xml_string(KLANN_XML, None)
+    model = mujoco.MjModel.from_xml_path("src/klann_linkage.xml", None)
     assert model is not None
 
 
